@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hollie Parts — Fulfillment</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f8f9fa; color: #222; }
+
+  header {
+    background: #1a1a2e; color: white; padding: 14px 20px;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  header h1 { font-size: 1.1rem; font-weight: 700; }
+  header span { font-size: 0.8rem; color: #aab; }
+
+  .layout { display: flex; height: calc(100vh - 50px); overflow: hidden; }
+
+  /* LEFT: parts list */
+  .parts-panel {
+    flex: 1; overflow-y: auto; padding: 16px;
+    border-right: 1px solid #ddd;
+  }
+
+  .search-box {
+    width: 100%; padding: 9px 12px; border: 1px solid #ccc;
+    border-radius: 6px; font-size: 0.9rem; margin-bottom: 14px;
+    outline: none;
+  }
+  .search-box:focus { border-color: #4f6df5; }
+
+  .category-label {
+    font-size: 0.68rem; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.08em; color: #888; margin: 14px 0 6px;
+  }
+
+  .part-row {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 10px 12px; background: white; border: 1px solid #e8e8e8;
+    border-radius: 7px; margin-bottom: 5px; cursor: pointer;
+    transition: background 0.1s, border-color 0.1s;
+  }
+  .part-row:hover { background: #f0f4ff; border-color: #4f6df5; }
+  .part-row.in-cart { background: #eef2ff; border-color: #4f6df5; }
+
+  .part-name { font-size: 0.88rem; font-weight: 500; }
+  .part-add { 
+    font-size: 0.78rem; color: #4f6df5; font-weight: 600;
+    background: #eef2ff; padding: 3px 10px; border-radius: 12px;
+    white-space: nowrap;
+  }
+  .part-row.in-cart .part-add { background: #4f6df5; color: white; }
+
+  /* RIGHT: cart + checkout */
+  .cart-panel {
+    width: 300px; overflow-y: auto; padding: 16px;
+    display: flex; flex-direction: column; gap: 12px; background: white;
+  }
+
+  .cart-panel h2 { font-size: 0.95rem; font-weight: 700; }
+
+  .cart-empty { color: #aaa; font-size: 0.85rem; text-align: center; padding: 20px 0; }
+
+  .cart-item {
+    display: flex; align-items: center; gap: 8px;
+    padding: 7px 0; border-bottom: 1px solid #f0f0f0;
+  }
+  .cart-item-name { flex: 1; font-size: 0.83rem; }
+  .qty-btn {
+    background: #f0f0f0; border: none; width: 24px; height: 24px;
+    border-radius: 4px; cursor: pointer; font-size: 1rem; font-weight: 700;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .qty-btn:hover { background: #e0e0e0; }
+  .qty-num { font-size: 0.85rem; font-weight: 600; min-width: 18px; text-align: center; }
+  .remove-btn { color: #ccc; background: none; border: none; cursor: pointer; font-size: 1rem; padding: 0 2px; }
+  .remove-btn:hover { color: #e33; }
+
+  .divider { border: none; border-top: 1px solid #eee; }
+
+  label { font-size: 0.78rem; font-weight: 600; color: #555; display: block; margin-bottom: 4px; }
+  input[type=text], textarea {
+    width: 100%; padding: 8px 10px; border: 1px solid #ddd;
+    border-radius: 6px; font-size: 0.85rem; font-family: inherit; outline: none;
+  }
+  input[type=text]:focus, textarea:focus { border-color: #4f6df5; }
+  textarea { resize: vertical; min-height: 70px; }
+
+  .ship-btn {
+    background: #16a34a; color: white; border: none; width: 100%;
+    padding: 11px; border-radius: 8px; font-size: 0.95rem; font-weight: 700;
+    cursor: pointer; margin-top: 4px;
+  }
+  .ship-btn:hover { background: #15803d; }
+  .ship-btn:disabled { background: #aaa; cursor: not-allowed; }
+
+  .status-msg {
+    padding: 10px 12px; border-radius: 6px; font-size: 0.85rem;
+    font-weight: 600; text-align: center;
+  }
+  .status-ok { background: #dcfce7; color: #166534; }
+  .status-err { background: #fee2e2; color: #991b1b; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>🧂 Hollie Parts</h1>
+  <span>Fulfillment System</span>
+</header>
+
+<div class="layout">
+
+  <!-- LEFT: Parts List -->
+  <div class="parts-panel">
+    <input class="search-box" type="text" id="search" placeholder="Search parts..." oninput="renderParts()">
+    <div id="parts-list"></div>
+  </div>
+
+  <!-- RIGHT: Cart + Checkout -->
+  <div class="cart-panel">
+    <h2>🛒 Cart</h2>
+    <div id="cart-items"><p class="cart-empty">Click any part to add it</p></div>
+
+    <hr class="divider">
+
+    <div>
+      <label>Customer Name *</label>
+      <input type="text" id="customer" placeholder="Jane Smith">
+    </div>
+    <div>
+      <label>Shipping Address *</label>
+      <textarea id="address" placeholder="123 Main St, City, State ZIP"></textarea>
+    </div>
+    <div>
+      <label>Notes / Tracking (optional)</label>
+      <input type="text" id="notes" placeholder="Order #, tracking number...">
+    </div>
+
+    <div id="status-msg"></div>
+
+    <button class="ship-btn" id="ship-btn" onclick="shipItems()">📦 Log Shipment</button>
+  </div>
+</div>
+
+<script>
+const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbx455jra5gIvLhspNiaAhGPOURZIDUGApQuA0L3UBMnQD7wspqpYLuLmH3I05lw_lBnMA/exec';
+
+const PARTS = [
+  { cat: 'FX Series', name: 'FX Mill' },
+  { cat: 'FX Series', name: 'FX Fan' },
+  { cat: 'FX Series', name: 'FX Feeder' },
+  { cat: 'FX Series', name: 'FX Transformer' },
+  { cat: 'GX Series', name: 'GX Mill' },
+  { cat: 'GX Series', name: 'GX Pro Transformer' },
+  { cat: 'GX Series', name: 'GX Pro Display' },
+  { cat: 'GX Series', name: 'GX Pro Cover' },
+  { cat: 'EQ2 Series', name: 'EQ2 Mask' },
+  { cat: 'EQ2 Series', name: 'EQ2 Grinding Mill' },
+  { cat: 'Human / Mask', name: 'Human Mask' },
+  { cat: 'Human / Mask', name: 'Human Mask Hose' },
+  { cat: 'Turbo Mills', name: 'Turbo Mill' },
+  { cat: 'Turbo Mills', name: 'Turbo Mill Plug' },
+  { cat: 'Turbo Mills', name: 'Turbo Button' },
+  { cat: 'Clear Tubes', name: 'Clear Tube' },
+  { cat: 'HaloMini', name: 'HaloMini Grind Mill' },
+  { cat: 'HaloMini', name: 'HaloMini Air Channel' },
+  { cat: 'HaloMini', name: 'HaloMini Hose Cone' },
+  { cat: 'HaloPocket', name: 'HaloPocket Battery' },
+  { cat: 'HaloPocket', name: 'HaloPocket Battery Charger' },
+  { cat: 'HaloPocket', name: 'HaloPocket Cork / Cap' },
+  { cat: 'HaloPocket', name: 'HaloPocket Top (with holes)' },
+  { cat: 'Covers', name: 'IR Cover' },
+  { cat: 'Covers', name: 'VB Cover' },
+  { cat: 'Covers', name: 'FX Cover' },
+  { cat: 'HaloRed', name: 'HaloRed UV Key Mechanism w/ Keys' },
+  { cat: 'HaloRed', name: 'HaloRed Timing Knob' },
+  { cat: 'HaloRed', name: 'HaloRed Power Cord' },
+  { cat: 'Controls', name: 'Chromo Remote' },
+  { cat: 'Controls', name: 'Mill Control Wire' },
+  { cat: 'Controls', name: 'RCA Connector' },
+  { cat: 'Controls', name: 'VB Timer Knob' },
+  { cat: 'Controls', name: 'VB Contactor' },
+  { cat: 'Accessories', name: 'Air Channel Piece' },
+  { cat: 'Accessories', name: 'Feeder Auger Screw' },
+  { cat: 'Accessories', name: 'FX Scoop' },
+  { cat: 'Accessories', name: 'Extender Sleeve' },
+  { cat: 'Accessories', name: 'Locking Ring' },
+  { cat: 'Accessories', name: 'Air Hose' },
+  { cat: 'Accessories', name: 'Elbow Fitting' },
+  { cat: 'Accessories', name: 'Touch Up Paint' },
+  { cat: 'Sauna / LED', name: 'HaloSauna LED Light' },
+  { cat: 'Sauna / LED', name: 'HaloIR Reading Light' },
+  { cat: 'Sauna / LED', name: 'Old Style Diffuser' },
+];
+
+let cart = [];
+
+function renderParts() {
+  const q = document.getElementById('search').value.toLowerCase();
+  const filtered = PARTS.filter(p => p.name.toLowerCase().includes(q) || p.cat.toLowerCase().includes(q));
+  
+  const byCategory = {};
+  filtered.forEach(p => {
+    if (!byCategory[p.cat]) byCategory[p.cat] = [];
+    byCategory[p.cat].push(p);
+  });
+
+  let html = '';
+  Object.entries(byCategory).forEach(([cat, parts]) => {
+    html += `<div class="category-label">${cat}</div>`;
+    parts.forEach(p => {
+      const inCart = cart.find(c => c.name === p.name);
+      html += `
+        <div class="part-row ${inCart ? 'in-cart' : ''}" onclick="addToCart('${p.name.replace(/'/g,"\\'")}')">
+          <span class="part-name">${p.name}</span>
+          <span class="part-add">${inCart ? '✓ ' + inCart.qty + ' added' : '+ Add'}</span>
+        </div>`;
+    });
+  });
+
+  if (!html) html = '<p style="color:#aaa;font-size:.85rem;padding:20px 0;text-align:center">No parts found</p>';
+  document.getElementById('parts-list').innerHTML = html;
+}
+
+function addToCart(name) {
+  const existing = cart.find(c => c.name === name);
+  if (existing) {
+    existing.qty++;
+  } else {
+    cart.push({ name, qty: 1 });
+  }
+  renderParts();
+  renderCart();
+}
+
+function changeQty(name, delta) {
+  const item = cart.find(c => c.name === name);
+  if (!item) return;
+  item.qty += delta;
+  if (item.qty <= 0) cart = cart.filter(c => c.name !== name);
+  renderParts();
+  renderCart();
+}
+
+function removeFromCart(name) {
+  cart = cart.filter(c => c.name !== name);
+  renderParts();
+  renderCart();
+}
+
+function renderCart() {
+  const el = document.getElementById('cart-items');
+  if (cart.length === 0) {
+    el.innerHTML = '<p class="cart-empty">Click any part to add it</p>';
+    return;
+  }
+  el.innerHTML = cart.map(c => `
+    <div class="cart-item">
+      <span class="cart-item-name">${c.name}</span>
+      <button class="qty-btn" onclick="changeQty('${c.name.replace(/'/g,"\\'")}', -1)">−</button>
+      <span class="qty-num">${c.qty}</span>
+      <button class="qty-btn" onclick="changeQty('${c.name.replace(/'/g,"\\'")}', 1)">+</button>
+      <button class="remove-btn" onclick="removeFromCart('${c.name.replace(/'/g,"\\'")}')">✕</button>
+    </div>
+  `).join('');
+}
+
+async function shipItems() {
+  const customer = document.getElementById('customer').value.trim();
+  const address = document.getElementById('address').value.trim();
+  const notes = document.getElementById('notes').value.trim();
+  const statusEl = document.getElementById('status-msg');
+  const btn = document.getElementById('ship-btn');
+
+  if (!customer) { showStatus('Please enter a customer name.', false); return; }
+  if (cart.length === 0) { showStatus('Cart is empty — add at least one part.', false); return; }
+
+  btn.disabled = true;
+  btn.textContent = 'Logging...';
+  statusEl.className = '';
+  statusEl.textContent = '';
+
+  const payload = {
+    action: 'checkout',
+    customer,
+    address,
+    notes,
+    date: new Date().toLocaleDateString('en-US'),
+    items: cart.map(c => ({ name: c.name, qty: c.qty }))
+  };
+
+  try {
+    // Try Apps Script first
+    const res = await fetch(APPS_SCRIPT_URL, {
+      method: 'POST',
+      mode: 'no-cors', // Apps Script needs no-cors
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    // no-cors always returns opaque response, so we assume success
+    showStatus(`✅ Logged shipment for ${customer}!`, true);
+    cart = [];
+    document.getElementById('customer').value = '';
+    document.getElementById('address').value = '';
+    document.getElementById('notes').value = '';
+    renderParts();
+    renderCart();
+  } catch (err) {
+    showStatus(`⚠️ Could not reach server — copy the info below and save manually.`, false);
+    // Show printable fallback
+    const summary = `SHIPMENT LOG\nDate: ${payload.date}\nCustomer: ${customer}\nAddress: ${address}\nNotes: ${notes}\n\nItems:\n${cart.map(c=>` - ${c.name} x${c.qty}`).join('\n')}`;
+    alert(summary);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '📦 Log Shipment';
+  }
+}
+
+function showStatus(msg, ok) {
+  const el = document.getElementById('status-msg');
+  el.textContent = msg;
+  el.className = 'status-msg ' + (ok ? 'status-ok' : 'status-err');
+}
+
+// Init
+renderParts();
+renderCart();
+</script>
+</body>
+</html>
